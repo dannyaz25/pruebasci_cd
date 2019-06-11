@@ -1,0 +1,38 @@
+stages:
+  - build
+  - package
+
+package:
+  stage: build
+  image: maven:3-jdk-8
+  script: 
+    - mvn clean package -P docker sonar:sonar
+        --settings maven_settings.xml
+        -DskipTests=true
+        -Dmaven.repo.local=/cache/maven.repository
+        -Dsonar.host.url=https://sonar.dev.culqi.xyz
+        -Dsonar.login=41c3db20fea72bf13ac57f923a8e09ee462fd5b4
+  only:
+    - branches
+  artifacts:
+    paths:
+      - target/*.war
+
+docker:
+  services:
+   - docker:dind
+  stage: package
+  image: docker:git
+  variables:
+    DOCKER_DRIVER: overlay2
+    CONTAINER_TAG: $CI_COMMIT_REF_NAME
+  before_script:
+   - docker info
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CONTAINER_TAG .
+    - docker push $CI_REGISTRY_IMAGE:$CONTAINER_TAG
+  only:
+    refs:
+      - qa
+      - master
